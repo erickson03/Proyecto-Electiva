@@ -39,8 +39,4 @@
     <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
   </ItemGroup>
 
-  <ItemGroup>
-    <Folder Include="Carpeta de Ejemplo\" />
-  </ItemGroup>
-
 </Project>

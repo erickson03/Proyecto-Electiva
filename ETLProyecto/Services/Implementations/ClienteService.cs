@@ -1,9 +1,10 @@
-﻿using ETLProyecto.Data;
+﻿using ETLProyecto.Data.Connections;
 using ETLProyecto.Models;
+using ETLProyecto.Services.Interfaces;
 using System.Data;
 using System.Data.SqlClient;
 
-namespace ETLProyecto.Services
+namespace ETLProyecto.Services.Implementations
 {
     public class ClienteService : IClienteService
     {

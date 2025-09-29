@@ -2,11 +2,10 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace ETLProyecto.Services
+namespace ETLProyecto.Services.Interfaces
 {
-    public interface IOrderService
+    public interface IOrderDetailService
     {
-        Task<int> InsertOrdersAsync(IEnumerable<Order> orders);
         Task<int> InsertOrderDetailsAsync(IEnumerable<OrderDetail> details);
     }
 }

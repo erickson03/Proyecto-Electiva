@@ -1,6 +1,7 @@
 ﻿using CsvHelper;
 using CsvHelper.Configuration;
 using ETLProyecto.Models;
+using ETLProyecto.Services.Interfaces;
 using Microsoft.Extensions.Configuration;
 using System.Collections.Generic;
 using System.Globalization;
@@ -8,7 +9,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace ETLProyecto.Services
+namespace ETLProyecto.Services.Implementations
 {
     public class CsvReaderService : ICsvReaderService
     {

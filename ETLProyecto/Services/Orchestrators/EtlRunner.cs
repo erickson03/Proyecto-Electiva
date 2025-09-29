@@ -1,7 +1,8 @@
 ﻿using ETLProyecto.Models;
+using ETLProyecto.Services.Interfaces;
 using Microsoft.Extensions.Logging;
 
-namespace ETLProyecto.Services
+namespace ETLProyecto.Services.Orchestrators
 {
     public class EtlRunner
     {

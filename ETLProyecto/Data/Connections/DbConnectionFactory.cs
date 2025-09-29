@@ -2,7 +2,7 @@
 using System;
 using System.Data.SqlClient;
 
-namespace ETLProyecto.Data
+namespace ETLProyecto.Data.Connections
 {
     public class DbConnectionFactory : IDbConnectionFactory
     {

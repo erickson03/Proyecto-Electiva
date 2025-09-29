@@ -2,7 +2,7 @@
 using ETLProyecto.Models;
 using ETLProyecto.Services.Interfaces;
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace ETLProyecto.Services.Implementations
 {
@@ -14,7 +14,10 @@ namespace ETLProyecto.Services.Implementations
 
         public async Task<int> InsertClientesAsync(IEnumerable<Cliente> clientes)
         {
-            var lista = clientes.ToList();
+            var lista = clientes
+                .Where(c => c.CustomerID > 0 && !string.IsNullOrWhiteSpace(c.FirstName) && !string.IsNullOrWhiteSpace(c.LastName))
+                .ToList();
+
             if (!lista.Any()) return 0;
 
             using var conn = _dbFactory.CreateConnection();
@@ -25,8 +28,8 @@ namespace ETLProyecto.Services.Implementations
             {
                 using var cmd = conn.CreateCommand();
                 cmd.Transaction = tran;
-                cmd.CommandText = @"INSERT INTO Clientes 
-                                    (CustomerID, FirstName, LastName, Email, Phone, City, Country, FuenteID)
+                cmd.CommandText = @"IF NOT EXISTS (SELECT 1 FROM Clientes WHERE CustomerID = @customerId)
+                                    INSERT INTO Clientes (CustomerID, FirstName, LastName, Email, Phone, City, Country, FuenteID)
                                     VALUES (@customerId, @firstName, @lastName, @email, @phone, @city, @country, @fuenteId);";
 
                 cmd.Parameters.Add(new SqlParameter("@customerId", SqlDbType.Int));
@@ -42,16 +45,15 @@ namespace ETLProyecto.Services.Implementations
                 foreach (var c in lista)
                 {
                     cmd.Parameters["@customerId"].Value = c.CustomerID;
-                    cmd.Parameters["@firstName"].Value = c.FirstName;
-                    cmd.Parameters["@lastName"].Value = c.LastName;
-                    cmd.Parameters["@email"].Value = (object?)c.Email ?? DBNull.Value;
+                    cmd.Parameters["@firstName"].Value = c.FirstName.Trim();
+                    cmd.Parameters["@lastName"].Value = c.LastName.Trim();
+                    cmd.Parameters["@email"].Value = (object?)c.Email?.ToLower() ?? DBNull.Value;
                     cmd.Parameters["@phone"].Value = (object?)c.Phone ?? DBNull.Value;
                     cmd.Parameters["@city"].Value = (object?)c.City ?? DBNull.Value;
                     cmd.Parameters["@country"].Value = (object?)c.Country ?? DBNull.Value;
                     cmd.Parameters["@fuenteId"].Value = DBNull.Value;
 
-                    await cmd.ExecuteNonQueryAsync();
-                    inserted++;
+                    inserted += await cmd.ExecuteNonQueryAsync();
                 }
 
                 await tran.CommitAsync();

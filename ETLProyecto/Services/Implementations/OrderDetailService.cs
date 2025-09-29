@@ -1,7 +1,7 @@
 ﻿using ETLProyecto.Data.Connections;
 using ETLProyecto.Models;
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace ETLProyecto.Services.Implementations
 {
@@ -16,7 +16,7 @@ namespace ETLProyecto.Services.Implementations
 
         public async Task<int> InsertOrderDetailsAsync(IEnumerable<OrderDetail> details)
         {
-            var lista = details.ToList();
+            var lista = details.Where(d => d.OrderID > 0 && d.ProductID > 0 && d.Quantity > 0).ToList();
             if (!lista.Any()) return 0;
 
             using var conn = _dbFactory.CreateConnection();
@@ -25,26 +25,38 @@ namespace ETLProyecto.Services.Implementations
 
             try
             {
-                using var cmd = conn.CreateCommand();
-                cmd.Transaction = tran;
-                cmd.CommandText = @"INSERT INTO OrderDetails (OrderID, ProductID, Quantity, TotalPrice)
-                                    VALUES (@orderId, @productId, @quantity, @totalPrice);";
-
-                cmd.Parameters.Add(new SqlParameter("@orderId", SqlDbType.Int));
-                cmd.Parameters.Add(new SqlParameter("@productId", SqlDbType.Int));
-                cmd.Parameters.Add(new SqlParameter("@quantity", SqlDbType.Int));
-                cmd.Parameters.Add(new SqlParameter("@totalPrice", SqlDbType.Decimal) { Precision = 10, Scale = 2 });
-
                 int inserted = 0;
                 foreach (var d in lista)
                 {
-                    cmd.Parameters["@orderId"].Value = d.OrderID;
-                    cmd.Parameters["@productId"].Value = d.ProductID;
-                    cmd.Parameters["@quantity"].Value = d.Quantity;
-                    cmd.Parameters["@totalPrice"].Value = d.TotalPrice;
+                    // Recuperar precio del producto desde BD
+                    decimal price;
+                    using (var priceCmd = conn.CreateCommand())
+                    {
+                        priceCmd.Transaction = tran;
+                        priceCmd.CommandText = "SELECT Price FROM Productos WHERE ProductID = @productId";
+                        priceCmd.Parameters.Add(new SqlParameter("@productId", d.ProductID));
+                        var result = await priceCmd.ExecuteScalarAsync();
+                        if (result == null) continue; // producto no existe
+                        price = (decimal)result;
+                    }
 
-                    await cmd.ExecuteNonQueryAsync();
-                    inserted++;
+                    // Calcular total
+                    d.TotalPrice = d.Quantity * price;
+
+                    using var cmd = conn.CreateCommand();
+                    cmd.Transaction = tran;
+                    cmd.CommandText = @"IF EXISTS (SELECT 1 FROM Orders WHERE OrderID = @orderId)
+                                        BEGIN
+                                            INSERT INTO OrderDetails (OrderID, ProductID, Quantity, TotalPrice)
+                                            VALUES (@orderId, @productId, @quantity, @totalPrice);
+                                        END";
+
+                    cmd.Parameters.Add(new SqlParameter("@orderId", d.OrderID));
+                    cmd.Parameters.Add(new SqlParameter("@productId", d.ProductID));
+                    cmd.Parameters.Add(new SqlParameter("@quantity", d.Quantity));
+                    cmd.Parameters.Add(new SqlParameter("@totalPrice", d.TotalPrice));
+
+                    inserted += await cmd.ExecuteNonQueryAsync();
                 }
 
                 await tran.CommitAsync();

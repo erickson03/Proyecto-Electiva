@@ -2,7 +2,7 @@
 using ETLProyecto.Models;
 using ETLProyecto.Services.Interfaces;
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 
 namespace ETLProyecto.Services.Implementations
 {
@@ -17,7 +17,10 @@ namespace ETLProyecto.Services.Implementations
 
         public async Task<int> InsertProductosAsync(IEnumerable<Producto> productos)
         {
-            var lista = productos.ToList();
+            var lista = productos
+                .Where(p => p.ProductID > 0 && !string.IsNullOrWhiteSpace(p.ProductName) && p.Price > 0 && p.Stock >= 0)
+                .ToList();
+
             if (!lista.Any()) return 0;
 
             using var conn = _dbFactory.CreateConnection();
@@ -28,8 +31,8 @@ namespace ETLProyecto.Services.Implementations
             {
                 using var cmd = conn.CreateCommand();
                 cmd.Transaction = tran;
-                cmd.CommandText = @"INSERT INTO Productos 
-                                    (ProductID, ProductName, Category, Price, Stock, FuenteID)
+                cmd.CommandText = @"IF NOT EXISTS (SELECT 1 FROM Productos WHERE ProductID = @productId)
+                                    INSERT INTO Productos (ProductID, ProductName, Category, Price, Stock, FuenteID)
                                     VALUES (@productId, @productName, @category, @price, @stock, @fuenteId);";
 
                 cmd.Parameters.Add(new SqlParameter("@productId", SqlDbType.Int));
@@ -43,14 +46,13 @@ namespace ETLProyecto.Services.Implementations
                 foreach (var p in lista)
                 {
                     cmd.Parameters["@productId"].Value = p.ProductID;
-                    cmd.Parameters["@productName"].Value = p.ProductName;
-                    cmd.Parameters["@category"].Value = (object?)p.Category ?? DBNull.Value;
+                    cmd.Parameters["@productName"].Value = p.ProductName.Trim();
+                    cmd.Parameters["@category"].Value = string.IsNullOrWhiteSpace(p.Category) ? "General" : p.Category.Trim();
                     cmd.Parameters["@price"].Value = p.Price;
                     cmd.Parameters["@stock"].Value = p.Stock;
                     cmd.Parameters["@fuenteId"].Value = DBNull.Value;
 
-                    await cmd.ExecuteNonQueryAsync();
-                    inserted++;
+                    inserted += await cmd.ExecuteNonQueryAsync();
                 }
 
                 await tran.CommitAsync();
